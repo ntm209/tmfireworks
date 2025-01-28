@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fireworks by tmmmmmm</title>
+    <style>
+        body {
+            background: black;
+            overflow: hidden;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        canvas {
+            background: #000;
+        }
+        #startButton {
+            padding: 20px 40px;
+            font-size: 22px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(45deg, #ff6a00, #ee0979);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease-in-out;
+        }
+        #startButton:hover {
+            background: linear-gradient(45deg, #ff8c00, #ff007c);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        #startButton:active {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        #startButton:focus {
+            outline: none;
+        }
+        #countdown {
+            font-size: 48px;
+            color: white;
+            font-weight: bold;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <button id="startButton">=))</button>
+    <div id="countdown"></div>
+
+    <script>
+        window.addEventListener("resize", resizeCanvas, false);
+        window.addEventListener("DOMContentLoaded", onLoad, false);
+
+        let canvas, ctx, w, h, rockets = [], particles = [];
+        const fireworkDuration = 30000; // Fireworks duration: 1 minute
+        const particleSize = 2;
+        let animationStarted = false;
+        let countdownTimer;
+        const countdownNumbers = ['...', '..', '.']; // Countdown numbers to be shown as particles
+        let currentCountdownIndex = 0;
+
+        function onLoad() {
+            canvas = document.getElementById("canvas");
+            ctx = canvas.getContext("2d");
+            resizeCanvas();
+
+            const startButton = document.getElementById("startButton");
+            startButton.addEventListener("click", startCountdown);
+        }
+
+        function resizeCanvas() {
+            if (!!canvas) {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            }
+        }
+
+        function startCountdown() {
+            const startButton = document.getElementById("startButton");
+            const countdown = document.getElementById("countdown");
+            
+            startButton.style.display = "none"; // Hide the start button
+            countdown.style.display = "block"; // Show the countdown
+            
+            // Reset countdown state
+            particles = [];
+            currentCountdownIndex = 0;
+
+            countdownNumbers.forEach((number, index) => {
+                setTimeout(() => {
+                    showNumberAsParticles(number);
+                }, index * 1000);
+            });
+
+            setTimeout(startFireworksAnimation, countdownNumbers.length * 1000); // Start fireworks after countdown
+        }
+
+        function showNumberAsParticles(number) {
+            // Generate particles for the number displayed
+            const numParticles = 300; // Bigger explosion effect
+            const angleStep = Math.PI * 2 / numParticles;
+
+            // Generate particles in a grid that forms the shape of the number
+            for (let i = 0; i < numParticles; i++) {
+                const angle = i * angleStep;
+                const speed = Math.random() * 3 + 2;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+                particles.push(new Particle(w / 2, h / 2, vx, vy, generateRandomColor()));
+            }
+
+            // Update the countdown display
+            const countdown = document.getElementById("countdown");
+            countdown.textContent = number;
+        }
+
+        function startFireworksAnimation() {
+            if (!animationStarted) {
+                animationStarted = true;
+                const startTime = Date.now();
+                const countdown = document.getElementById("countdown");
+                countdown.style.display = "none"; // Hide the countdown text
+
+                function updateFireworks() {
+                    const elapsed = Date.now() - startTime;
+
+                    if (elapsed < fireworkDuration) {
+                        updateWorld();
+                        paintFireworks();
+                        requestAnimationFrame(updateFireworks);
+                    } else {
+                        drawTextParticles(); // Trigger particle explosion for "HAPPY NEW YEAR"
+                    }
+                }
+
+                updateFireworks();
+            }
+        }
+
+        function updateWorld() {
+            // Adjust the probability to create new rockets to be less frequent
+            if (rockets.length < 3 && Math.random() < 0.05) { // 5% chance to create a new rocket per frame
+                rockets.push(new Rocket());
+            }
+
+            // Update rockets and particles
+            rockets = rockets.filter(rocket => rocket.update());
+            particles = particles.filter(particle => particle.update());
+        }
+
+        function paintFireworks() {
+            ctx.globalCompositeOperation = "source-over";
+            ctx.fillStyle = "rgba(0,0,0,0.2)";
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalCompositeOperation = "lighter";
+
+            // Draw rockets
+            rockets.forEach(rocket => rocket.draw(ctx));
+
+            // Draw particles
+            particles.forEach(particle => particle.draw(ctx));
+        }
+
+        class Rocket {
+            constructor() {
+                this.x = Math.random() * w;
+                this.y = h;
+                this.vx = (Math.random() - 0.5) * 2; // Horizontal speed
+                this.vy = -(Math.random() * 3 + 8); // Slower upward speed
+                this.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+                this.alpha = 1;
+                this.exploded = false;
+
+                // Play the sound for the rocket flying up
+                this.launchSound = new Audio("Flying Up.mp3");
+                this.launchSound.play();
+            }
+
+            update() {
+                if (!this.exploded) {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.alpha -= 0.005; // Slower fading
+
+                    // Explode at a higher height
+                    if (this.y < h / 3 || this.alpha <= 0.85) {
+                        this.explode();
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            explode() {
+                this.exploded = true;
+                const numParticles = 200; // Bigger explosion effect
+                for (let i = 0; i < numParticles; i++) {
+                    const angle = Math.random() * Math.PI * 2; // Random angle
+                    const speed = Math.random() * 6 + 2; // Random speed
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+                    particles.push(new Particle(this.x, this.y, vx, vy, this.color));
+                }
+
+                // Play the sound for the explosion
+                const explodeSound = new Audio("Explode.mp3");
+                explodeSound.play();
+            }
+
+            draw(ctx) {
+                if (!this.exploded) {
+                    ctx.save();
+                    ctx.globalAlpha = this.alpha;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, vx, vy, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.alpha = 1;
+                this.gravity = 0.05;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity; // Apply gravity
+                this.alpha -= 0.02;
+                return this.alpha > 0;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI * 2); // Bigger particle size
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function generateRandomColor() {
+            return `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+        }
+        function drawTextParticles() {
+        ctx.clearRect(0, 0, w, h);
+
+        // Vẽ chữ "Năm mới vui vẻ" với màu trắng
+        ctx.font = `${Math.min(w, h) / 10}px Courier New`;
+        ctx.textAlign = "center";
+        ctx.fillStyle = "blue"; // Đặt màu chữ là trắng
+        ctx.fillText("Năm mới vui vẻ", w / 2, h / 2 + Math.min(w, h) / 5);
+
+        particles = [];
+        const text = "Happy New Year";
+
+        // Vẽ chữ "Happy New Year" với particles
+        ctx.font = `${Math.min(w, h) / 5}px Edwardian Script ITC`;
+        ctx.textAlign = "center";
+        ctx.fillStyle = "white";
+        ctx.fillText(text, w / 2, h / 2);
+
+        // Lấy dữ liệu pixel từ canvas
+        const imageData = ctx.getImageData(0, 0, w, h).data;
+
+        // Xóa canvas để chuẩn bị cho particles
+        ctx.clearRect(0, 0, w, h);
+
+        // Tạo particles từ text
+        for (let y = 0; y < h; y += particleSize) {
+            for (let x = 0; x < w; x += particleSize) {
+                const alpha = imageData[(y * w + x) * 4 + 3];
+                if (alpha > 128) {
+                    particles.push(
+                        new Particle(x, y, Math.random() * 4 - 2, Math.random() * 4 - 2, generateRandomColor())
+                    );
+                }
+            }
+        }
+        animateTextParticles();
+}
+
+        function animateTextParticles() {
+            setTimeout(() => {}, 3000); 
+            ctx.clearRect(0, 0, w, h);
+            particles = particles.filter(particle => particle.update());
+            paintFireworks();
+        }
+    </script>
+</body>
+</html>
